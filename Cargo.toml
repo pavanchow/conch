@@ -1,0 +1,17 @@
+[package]
+name = "conch"
+version = "0.1.0"
+edition = "2021"
+authors = ["Pavan Nallamothu"]
+description = "A shell in Rust: tokenizer, pipeline parser, and process wiring you can read end to end."
+license = "MIT"
+
+[[bin]]
+name = "conch"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
