@@ -16,7 +16,7 @@
   <meta property="og:site_name" content="Conch">
   <meta name="twitter:card" content="summary">
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Conch","applicationCategory":"DeveloperApplication","operatingSystem":"Cross-platform","author":{"@type":"Person","name":"Pavan Nallamothu"},"description":"Conch is a shell in Rust with a from-scratch tokenizer, pipeline parser, and process wiring for pipes and redirects.","url":"https://pavanchow.github.io/conch/","codeRepository":"https://github.com/pavanchow/conch","programmingLanguage":"Rust"}
+  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Conch","applicationCategory":"DeveloperApplication","softwareVersion":"0.1.0","operatingSystem":"Cross-platform","author":{"@type":"Person","name":"Pavan Nallamothu"},"description":"Conch is a shell in Rust with a from-scratch tokenizer, pipeline parser, and process wiring for pipes and redirects.","url":"https://pavanchow.github.io/conch/","codeRepository":"https://github.com/pavanchow/conch","programmingLanguage":"Rust"}
   </script>
   <style>
     :root{
@@ -39,6 +39,7 @@
     nav .brand .gem{width:16px;height:16px;transform:rotate(45deg);border-radius:3px;background:linear-gradient(135deg,#6bd6ac,#0a7d5c)}
     nav .links{display:flex;gap:26px;align-items:center}
     nav .links a{color:var(--ink);font-size:14.5px}
+    nav .v{color:var(--faint);font-family:var(--mono);font-size:12px}
     @media(max-width:640px){nav .links a:not(.gh){display:none}}
 
     .hero{padding:70px 0 30px;text-align:center}
@@ -104,6 +105,12 @@
     pre{background:#15161c;color:#ececf4;border-radius:14px;padding:20px 22px;font-family:var(--mono);font-size:13.5px;overflow-x:auto;max-width:640px;margin:40px auto 0}
     pre .c{color:#8a8d9a}
 
+    .snip{max-width:720px;margin:38px auto 0;background:#15161c;color:#ececf4;border-radius:16px;
+      padding:22px 24px;font-family:var(--mono);font-size:13.5px;line-height:1.7;overflow-x:auto}
+    .snip .c{color:#8a8d9a}
+    .snip .p{color:#6bd6ac}
+    .snip .e{color:#ff7b72}
+
     footer{padding:64px 0;border-top:1px solid var(--line);text-align:center;color:var(--muted)}
     footer .name{color:var(--ink);font-weight:600}
   </style>
@@ -118,6 +125,7 @@
     <div class="links">
       <a href="#try">Demo</a><a href="#how">How it works</a><a href="#builtins">Builtins</a>
       <a class="gh" href="https://github.com/pavanchow/conch">GitHub</a>
+      <span class="v">v0.1.0</span>
     </div>
   </div></nav>
 
@@ -145,6 +153,28 @@
     </div>
   </div>
 
+  <section>
+    <h2>The demo parses. The binary runs.</h2>
+    <p class="lead">The same three passes, this time spawning real processes and returning real exit codes. Captured from the release build.</p>
+    <div class="snip" aria-hidden="true">
+<span class="c"># one-shot mode: a real pipeline of real processes</span><br>
+<span class="p">$</span> conch -c "cat fruit.txt | sort | uniq -c"<br>
+&nbsp;&nbsp;&nbsp;2 apple<br>
+&nbsp;&nbsp;&nbsp;1 banana<br>
+&nbsp;&nbsp;&nbsp;1 cherry<br>
+<br>
+<span class="c"># typed errors, never a panic, each with its own exit code</span><br>
+<span class="p">$</span> conch -c "cat file.txt |"<br>
+<span class="e">conch: parse error: empty command between pipes</span><br>
+<span class="p">$</span> conch -c "nosuchprog"<br>
+<span class="e">conch: nosuchprog: command not found</span><br>
+<br>
+<span class="c"># hostile input is capped, not looped (a line of 5000 pipes)</span><br>
+<span class="p">$</span> conch -c "|||| ... ||||"<br>
+<span class="e">conch: input rejected: line produced more than 4096 tokens</span>
+    </div>
+  </section>
+
   <section id="how">
     <h2>Three small stages, no magic in between.</h2>
     <p class="lead">A command line becomes a pipeline in three readable passes, each one a single small file.</p>
@@ -162,6 +192,28 @@
       <div class="r"><b>Everything else</b><p>Spawned with std::process::Command, stdin and stdout wired between pipeline stages, waited on in order, exit code passed back like any real shell.</p></div>
       <div class="r"><b>Errors</b><p>A parse error, an unknown command, and a redirect failure are three distinct typed errors, never a panic on bad input.</p></div>
       <div class="r"><b>REPL and one-shot</b><p>Run interactively with a prompt, or run a single line with -c "command" and exit, both capped on input length.</p></div>
+    </div>
+  </section>
+
+  <section id="different">
+    <h2>What makes it different.</h2>
+    <p class="lead">Conch is not trying to replace your daily shell. It is trying to be a shell you can read, with the design choices that come from that goal.</p>
+    <div class="rows">
+      <div class="r"><b>No shell crate</b><p>The only dependency is clap, for argument parsing. The tokenizer, the pipeline parser, and the process wiring are hand-written across four small modules, so nothing important happens in code you cannot open.</p></div>
+      <div class="r"><b>Guarded against hostile input</b><p>A token cap of 4096, a pipeline depth cap of 512, and a one MiB per-line cap reject pathological input as it is read, before it can grow a token stream or a command list without bound.</p></div>
+      <div class="r"><b>Typed errors, never a panic</b><p>One ShellError enum covers parse, unknown command, I/O, and limit failures. Every fallible function returns a Result, so malformed input comes back as a value, it never unwinds the process.</p></div>
+      <div class="r"><b>Parsing spawns nothing</b><p>parse returns a plain Pipeline data structure with no process handles in it. Wiring stdin, stdout, and redirects between stages is a separate pass in exec.rs, kept apart from parsing.</p></div>
+    </div>
+  </section>
+
+  <section id="use">
+    <h2>Use it four ways.</h2>
+    <p class="lead">The same parser and process wiring behind every interface the crate ships.</p>
+    <div class="rows">
+      <div class="r"><b>One-shot</b><p>conch -c "command" runs a single line and exits, through the same parse and run_pipeline path as the REPL.</p></div>
+      <div class="r"><b>Interactive REPL</b><p>conch with no arguments starts a prompt and reads a line at a time, each capped at one MiB before it reaches the tokenizer.</p></div>
+      <div class="r"><b>Library modules</b><p>lexer, parser, exec, and error are separate modules in the crate, each usable and testable on its own.</p></div>
+      <div class="r"><b>Tests</b><p>cargo test covers quoting and escaping, building the right pipeline for a | b | c and for redirects, cd changing the directory, export reaching a child, unknown commands returning a typed error, and malformed input never panicking.</p></div>
     </div>
   </section>
 
