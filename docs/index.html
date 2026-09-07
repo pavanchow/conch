@@ -8,6 +8,7 @@
   <meta name="author" content="Pavan Nallamothu (pavanchow)">
   <meta name="keywords" content="shell in Rust, Unix shell, tokenizer, pipeline parser, pipes, redirects, REPL, Pavan Nallamothu, pavanchow">
   <link rel="canonical" href="https://pavanchow.github.io/conch/">
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Conch: a shell in Rust you can read end to end">
   <meta property="og:description" content="A from-scratch tokenizer, a pipeline parser, and real process wiring for pipes and redirects. Try the parser live in your browser.">
@@ -42,6 +43,12 @@
 
     .hero{padding:70px 0 30px;text-align:center}
     .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+    .howto{max-width:620px;margin:0 auto 22px;border:1px solid var(--line);border-radius:14px;padding:2px 18px;background:var(--panel2)}
+    .howto>summary{cursor:pointer;font-weight:600;padding:14px 0;list-style:none}
+    .howto>summary::-webkit-details-marker{display:none}
+    .howto>summary::before{content:"\25B8";display:inline-block;margin-right:8px;color:var(--accent);transition:transform .15s}
+    .howto[open]>summary::before{transform:rotate(90deg)}
+    .howto p{margin:0 0 14px;color:var(--muted);line-height:1.6;text-align:left}
     h1{font-size:clamp(40px,7vw,72px);line-height:1.03;letter-spacing:-.035em;font-weight:680;margin:18px 0 0}
     .hero p.sub{max-width:620px;margin:24px auto 0;font-size:clamp(17px,2.1vw,21px);color:var(--muted)}
     .cta{display:flex;gap:14px;justify-content:center;margin-top:38px;flex-wrap:wrap}
@@ -115,6 +122,7 @@
   </div></nav>
 
   <div class="hero">
+    <img src="logo.svg" alt="Conch logo" width="72" height="72">
     <p class="eyebrow">Rust &middot; from scratch &middot; no shell crates</p>
     <h1>A shell in Rust<br>you can read end to end.</h1>
     <p class="sub">Conch is a shell in Rust built from a hand-written tokenizer up through a pipeline parser and real process wiring. Every stage of a command line, from characters to a running pipeline, fits in a codebase small enough to actually read.</p>
@@ -125,6 +133,10 @@
   </div>
 
   <div id="try" class="stage">
+    <details class="howto">
+      <summary>How to use this playground</summary>
+      <p>Type a command line into the box, or click a preset chip. As you type, the real tokenizer and pipeline parser (ported line for line from <code>src/lexer.rs</code> and <code>src/parser.rs</code>) run in your browser and show the token stream and the parsed pipeline of stages, arguments, and redirects. Try pipes and <code>&lt;</code> <code>&gt;</code> <code>&gt;&gt;</code> redirects to see how each is grouped.</p>
+    </details>
     <div class="card demo">
       <div class="chips" id="chips"></div>
       <input id="line" type="text" spellcheck="false" autocomplete="off" placeholder="cat file.txt | grep foo | sort > out.txt">

@@ -1,5 +1,7 @@
 # Conch
 
+<img src="docs/logo.svg" alt="Conch logo" width="96">
+
 **A shell in Rust, small enough to read end to end.**
 
 Conch is a from-scratch Unix shell. It has a hand-written tokenizer, a pipeline parser that understands pipes and redirects, and process wiring that spawns real commands and connects them the way a shell should. No shell crate does the work underneath, the only dependency is `clap` for argument parsing.
