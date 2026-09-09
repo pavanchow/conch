@@ -1,5 +1,6 @@
 use std::env;
 use std::fs::{File, OpenOptions};
+use std::io::{self, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::process::{Child, Command as ProcCommand, Stdio};
 
@@ -23,33 +24,36 @@ pub fn run_pipeline(pipeline: &Pipeline) -> ShellResult<i32> {
     // A single builtin with no pipe runs in-process so `cd`/`export`/`exit`
     // affect the shell itself rather than a throwaway child.
     if pipeline.commands.len() == 1 && is_builtin(&pipeline.commands[0].prog) {
-        return run_builtin(&pipeline.commands[0]);
+        return run_builtin(&pipeline.commands[0], &mut io::stdout());
     }
 
     let n = pipeline.commands.len();
     let mut children: Vec<Child> = Vec::with_capacity(n);
-    let mut prev_stdout: Option<std::process::ChildStdout> = None;
+    let mut prev_stdout: Option<Stdio> = None;
 
     for (idx, cmd) in pipeline.commands.iter().enumerate() {
         let is_last = idx == n - 1;
 
         if is_builtin(&cmd.prog) {
-            // A builtin mid-pipeline still needs to participate in the pipe
-            // chain; conch runs it out-of-process is unnecessary for the
-            // small builtin set, so it executes inline and its result
-            // becomes the exit code contribution, but it cannot both read
-            // a pipe and write one without a subprocess. Builtins here are
-            // limited to a standalone stage: run and pass exit code along,
-            // stdin/stdout pass-through is skipped intentionally.
-            let code = run_builtin(cmd)?;
+            // Builtins don't read stdin, so any incoming pipe is dropped here.
+            let _ = prev_stdout.take();
             if is_last {
+                // Final stage: write straight to the shell's stdout, and run
+                // in-process so `cd`/`export`/`exit` affect the shell.
+                let code = run_builtin(cmd, &mut io::stdout())?;
                 return Ok(code);
             }
+            // Non-final builtin: capture its stdout and hand it to the next
+            // stage as stdin, exactly like an external command's piped stdout.
+            let mut buf = Vec::new();
+            let code = run_builtin(cmd, &mut buf)?;
+            prev_stdout = Some(buffer_to_stdin(&buf)?);
+            let _ = code;
             continue;
         }
 
-        let stdin = if let Some(out) = prev_stdout.take() {
-            Stdio::from(out)
+        let stdin = if let Some(s) = prev_stdout.take() {
+            s
         } else if let Some(r) = cmd
             .redirects
             .iter()
@@ -82,7 +86,7 @@ pub fn run_pipeline(pipeline: &Pipeline) -> ShellResult<i32> {
             .spawn()
             .map_err(|_| ShellError::UnknownCommand(cmd.prog.clone()))?;
 
-        prev_stdout = child.stdout.take();
+        prev_stdout = child.stdout.take().map(Stdio::from);
         children.push(child);
     }
 
@@ -97,6 +101,33 @@ pub fn run_pipeline(pipeline: &Pipeline) -> ShellResult<i32> {
     Ok(last_code)
 }
 
+/// Turn a builtin's captured output into a readable stdin for the next
+/// pipeline stage. Backed by a temp file that is unlinked immediately after
+/// opening, so the fd stays valid but no file lingers on disk.
+fn buffer_to_stdin(buf: &[u8]) -> ShellResult<Stdio> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let path = env::temp_dir().join(format!(
+        "conch-pipe-{}-{seq}",
+        std::process::id()
+    ));
+    let mut file = OpenOptions::new()
+        .create_new(true)
+        .read(true)
+        .write(true)
+        .open(&path)
+        .map_err(|e| ShellError::Io(format!("pipe buffer: {e}")))?;
+    // Unlink now; the open handle keeps the data alive until it is consumed.
+    let _ = std::fs::remove_file(&path);
+    file.write_all(buf)
+        .map_err(|e| ShellError::Io(format!("pipe buffer: {e}")))?;
+    file.seek(SeekFrom::Start(0))
+        .map_err(|e| ShellError::Io(format!("pipe buffer: {e}")))?;
+    Ok(Stdio::from(file))
+}
+
 fn open_for_redirect(target: &str, kind: &RedirectKind) -> ShellResult<File> {
     let path = Path::new(target);
     let result = match kind {
@@ -106,7 +137,7 @@ fn open_for_redirect(target: &str, kind: &RedirectKind) -> ShellResult<File> {
     result.map_err(|e| ShellError::Io(format!("{target}: {e}")))
 }
 
-fn run_builtin(cmd: &Command) -> ShellResult<i32> {
+fn run_builtin(cmd: &Command, out: &mut dyn Write) -> ShellResult<i32> {
     match cmd.prog.as_str() {
         "cd" => {
             let target = cmd
@@ -122,11 +153,13 @@ fn run_builtin(cmd: &Command) -> ShellResult<i32> {
         "pwd" => {
             let dir = env::current_dir()
                 .map_err(|e| ShellError::Io(format!("pwd: {e}")))?;
-            println!("{}", dir.display());
+            writeln!(out, "{}", dir.display())
+                .map_err(|e| ShellError::Io(format!("pwd: {e}")))?;
             Ok(0)
         }
         "echo" => {
-            println!("{}", cmd.args.join(" "));
+            writeln!(out, "{}", cmd.args.join(" "))
+                .map_err(|e| ShellError::Io(format!("echo: {e}")))?;
             Ok(0)
         }
         "export" => {
