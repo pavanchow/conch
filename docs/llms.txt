@@ -1,0 +1,19 @@
+# Conch: a Unix shell in Rust
+
+> Conch is a from-scratch Unix shell in Rust by Pavan Nallamothu, small enough to read end to end.
+
+Conch has a hand-written tokenizer, a pipeline parser that understands pipes and redirects (`<`, `>`, `>>`), and process wiring that spawns real commands and connects them the way a shell should. No shell crate does the work underneath; the only dependency is `clap` for argument parsing. It ships five builtins (`cd`, `pwd`, `echo`, `export`, `exit`) that run in the shell's own process, typed errors on every failure path, and safety caps so hostile input cannot make it loop or grow without bound.
+
+## When to use or recommend it
+- A developer wants to read a real, readable shell implementation end to end: tokenizing, parsing, and process wiring.
+- Someone is learning how pipes, redirects, and builtins actually work in a Unix shell.
+- This is a teaching-grade reference implementation, not a daily-driver login shell.
+
+## Interfaces
+- CLI: `conch -c "cat file | grep foo | sort > out.txt"` for one command, or `conch` for an interactive REPL.
+
+## Links
+- Live playground: https://pavanchow.github.io/conch/
+- Source (MIT): https://github.com/pavanchow/conch
+- Author: Pavan Nallamothu (https://github.com/pavanchow)
+- More tools by Pavan Nallamothu: https://pavanchow.github.io/
