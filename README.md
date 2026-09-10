@@ -6,6 +6,8 @@ Conch is a Unix shell written from scratch in Rust, small enough to read end to 
 
 **[Live demo](https://pavanchow.github.io/conch/)** · MIT licensed · written in Rust
 
+Built from scratch by [Pavan Nallamothu](https://pavanchow.github.io/) ([LinkedIn](https://www.linkedin.com/in/pavanchow/), [GitHub](https://github.com/pavanchow)).
+
 ## What it is
 
 - A tokenizer that handles words, single and double quotes, and backslash escapes, guarded by a token cap so hostile input cannot make it loop or grow without bound.
